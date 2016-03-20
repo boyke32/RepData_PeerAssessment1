@@ -1,25 +1,81 @@
+
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Programming Assignment 1"
+author: "GioomDB"
+output: html_document
 ---
+This markdown document describes Programming Assignment 1.
 
+```{r PA1,echo=T,dev='png',fig.path=""}
+library(dplyr)
+library(plyr)
+library(utils)
+library(data.table)
+library(knitr)
+library(xts)
+# Read in activity data  
+activitydata <- read.table("activity.csv", header = T, sep = ',', na.strings = 'NA')
+# Cast right data types  
+activitydata$date <- with(activitydata, as.Date(as.character(date),'%Y-%m-%d'))
+activitydata$steps <- with(activitydata, as.integer(steps))
+# Calculate mean, quantiles and median  
+with(activitydata,summary(steps))
+mean(is.na(activitydata$steps))
 
-## Loading and preprocessing the data
+#Q1
+#1. 
+#Aggregated sum of daily number of steps  
 
+stepsaday <- with(activitydata, tapply(steps, date, sum, na.rm=T))
+#2. 
+#Plot the histogram for average number of steps per day  
+hist(stepsaday, xlab='Mean steps per day')
+#3.
+#Calculate mean, quantiles and median  
+summary(stepsaday)
 
+#Q2
+#Calculate mean number of steps per interval (aggregate over interval)  
+stepsinterval <- with(activitydata, tapply(steps, interval, mean, na.rm=T))
+#1.
+#Create plot that shows mean number of steps per interval  
+with(activitydata, plot(unique(interval),stepsinterval,type='l',ylab='Interval (s)',xlab='Steps',main='Number of steps per interval'))
+#2.
+#Find maximum mean number of steps in interval -- 104th interval or at 835s  
+with(activitydata, which.max(stepsinterval))
+max(stepsinterval)
+#Q3
+#Here comes a way of imputing missing data  
+#It will replace NAs with the mean number of steps for that interval  
+#1.
+#Calculate number of NAs  
+apply(activitydata, 2, function(x) length(which(is.na(x))))
+#2.
+#Create impute vector  
+impute.mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+#3.
+#Paste calculated vector in data table  
+dat2 <- ddply(activitydata, ~ interval, transform, steps = impute.mean(steps))
+#Reorder data table on date  
+dat2 <- dat2[order(dat2$date),]
 
-## What is mean total number of steps taken per day?
+#4.
+#Histogram of imputed data  
+with(dat2, hist(tapply(steps, date, sum, na.rm=T), main='Histogram of mean steps per day',xlab='Number of steps a day')) 
+#Summary of imputed data  
+with(dat2, summary(tapply(steps, date, sum, na.rm=T)))
+with(activitydata, summary(tapply(steps, date, sum, na.rm=T)))
 
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+#Q4
+#1.
+#Create new column indicating whether the day is a weekday or weekend  
+dat2$weekday <- !grepl('zaterdag|zondag',weekdays(dat2$date))
+dat2$weekday <- factor(dat2$weekday,labels=c('weekend','weekday'))
+#Calculate aggregated mean for both weekdays and weekends  
+dat2intervalstepsweekday <- with(dat2[dat2$weekday=='weekday',], tapply(steps, interval, mean, na.rm=T))
+dat2intervalstepsweekend<- with(dat2[dat2$weekday=='weekend',], tapply(steps, interval, mean, na.rm=T))
+#Create panel plot showing both results  
+par(mfrow=c(2,1))
+plot(dat2intervalstepsweekday,type='l',col='red', ylab='Steps',xlab='Interval (s)', main='Weekdays')
+plot(dat2intervalstepsweekend,col='blue',type='l',ylab='Steps',xlab='Interval (s)', main='Weekends')
+```
